@@ -1,4 +1,5 @@
 #include "flappy.h"
+const double thrust = -8.0, gravity_y = -.581;  
 struct SDL_initialize init()
 {
 struct SDL_initialize return_value = {NULL, NULL};
@@ -62,26 +63,66 @@ static bird * create_batch(size_t amount_of_birds)
 	for(size_t ii=0; ii<amount_of_birds; ii++)
 	{
 		result[ii].bird_velocity =0; 
-		result[ii].x_position = (double)WIDTH/4; 
+		result[ii].x_position = (double)WIDTH/5 ; 
 		result[ii].y_position = (double)HEIGHT/2; 
 		result[ii].alive = true; 
 	}
 	return result; 
 
 }
+static pole * create_poles()
+{
+	const int width_pole = 20.0;   
+	const int gap = 100; 
+	pole * result = calloc(NUMBER_OF_POLES, sizeof(pole));
+
+	for(size_t ii=0; ii< NUMBER_OF_POLES; ++ii)
+	{
+		//result[ii].bottom_box= {WIDTH/2, 0 , };
+	}
+	return result;
+
+}
+inline static void poles(SDL_Renderer * render)
+{
+}
+inline static void jump(bird * birds){
+	birds->bird_velocity = thrust;
+}
+inline static void gravity(bird * birds, double delta_time ,size_t amount_of_birds)
+{
+	for(size_t i=0; i< amount_of_birds; ++i)
+	{
+		birds[i].bird_velocity -= gravity_y * delta_time;
+	} 	
+
+}
+inline static void change_y(bird * birds, double delta_time ,size_t amount_of_birds)
+{
+	for(size_t i=0; i< amount_of_birds; ++i){
+		birds[i].y_position += birds[i].bird_velocity *delta_time; 
+	} 	
+}
 void gameLoop(struct SDL_initialize *rend_wind)
 {
 bird * birds; 
-const size_t amount_of_birds = 1;
-bool birds_init = false; 
+const size_t amount_of_birds = 5;
 SDL_Event e;
+pole example; 
+example.bottom_box.w = 20 ;
+example.bottom_box.h = -50 ;
+example.bottom_box.x = WIDTH/2 ;
+example.bottom_box.y = HEIGHT;
 bool quit = false; 
-const double thrust = 8.0, gravity = 0.981;  
 time_t before = clock(); 
 birds = create_batch(amount_of_birds);
 while(!quit)
 {
-
+double delta_time = (double)(clock() - before)/1000.0;
+if (delta_time > 0.1)
+	delta_time = 0.1; 
+else if (delta_time < 0.065)
+	delta_time = 0.065;
 while(SDL_PollEvent(&e))
 {
 	if(e.type == SDL_QUIT)
@@ -89,12 +130,18 @@ while(SDL_PollEvent(&e))
 	else if(e.type == SDL_KEYDOWN) {
 		switch(e.key.keysym.sym)
 		{
-				
+			case SDLK_SPACE:
+			jump(birds); 	
 		}
 	}
 }
+change_y(birds, delta_time, amount_of_birds);
+gravity(birds, delta_time, amount_of_birds);
 SDL_SetRenderDrawColor(rend_wind->main_renderer, 0,104,255,137);
 SDL_RenderClear(rend_wind->main_renderer); 
+SDL_SetRenderDrawColor(rend_wind->main_renderer, 0,0,0,0);
+SDL_RenderFillRect(rend_wind->main_renderer, &example.bottom_box);
+SDL_RenderDrawRect(rend_wind->main_renderer,&example.bottom_box); 
 create_bird(rend_wind->main_renderer, birds, amount_of_birds, BIRD_RADIUS); 
 SDL_RenderPresent(rend_wind->main_renderer); 
 before = clock(); 
