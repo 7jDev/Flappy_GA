@@ -11,7 +11,7 @@
 #define BIRD_RADIUS 12
 #define NUMBER_OF_POLES 8
 typedef struct{
-	SDL_Rect bottom_box,
+	SDL_FRect bottom_box,
 		 top_box; 
 	bool visible; 
 } pole; 
@@ -28,11 +28,15 @@ typedef struct{
 	brain thinker; 
 } bird; 
 struct SDL_initialize init(); 
+inline static void rerender_pole(pole * first,  pole * last, pole * obstacle); 
+inline static void collision_detection(pole * obstacle, bird * birds); 
+inline static pole ** near_poles(pole * obstacle, bird * birds, pole *result[2]); 
 static void close(struct SDL_initialize* init); 
 static  bird* create_batch(size_t amount_of_birds);
 void gameLoop(struct SDL_initialize* rend_wind);
-static void create_bird(SDL_Renderer* render, bird* add, size_t amount_of_birds , int radius);
+static void create_bird(SDL_Renderer* render,pole * obstacles ,bird* add, size_t amount_of_birds , int radius);
 inline static void jump(bird *birds);
+inline static void game_movement(pole * obstacles, double delta_time);
 static pole* create_poles(); 
 inline static void gravity(bird * birds, double delta_time ,size_t amount_of_birds); 
 inline static void change_y(bird * birds, double delta_time, size_t amount_of_birds); 

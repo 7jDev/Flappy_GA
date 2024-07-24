@@ -19,9 +19,43 @@ init->main_window = NULL;
 init->main_renderer = NULL; 
 SDL_Quit(); 
 }
-static void create_bird(SDL_Renderer* render, bird* add, size_t amount_of_birds , int radius)
+inline static pole ** near_poles(pole * obstacle, bird * birds, pole* result[2])
+{
+	pole * close = obstacle; 
+	pole * close_two = obstacle + sizeof(pole);
+	float x_pos = birds->x_position;
+	for(size_t i=2; i< NUMBER_OF_POLES; ++i)
+	{
+ 		float first = (close->bottom_box.x - x_pos);
+		first = first <0.0? -first: first; 
+ 		float second= (close_two->bottom_box.x - x_pos);
+		second= second<0.0? -second: second; 
+ 		float compare= (obstacle[i].bottom_box.x - x_pos);
+		compare= compare<0.0? -compare: compare; 
+		if(first > compare)
+		{
+		close = &obstacle[i]; 	
+		}
+		else if (second > compare )
+		{
+		close_two = &obstacle[i];
+		}
+	}
+	result[0] = close; 
+	result[1] = close_two; 
+	return result;
+}  
+inline static void collision_detection(pole * obstacle, bird * birds)
+{
+	pole * result[2] = {};
+	near_poles(obstacle, birds, result);
+	
+
+}
+static void create_bird(SDL_Renderer* render, pole* obstacles ,bird* add, size_t amount_of_birds , int radius)
 {
 	for(size_t i =0; i<amount_of_birds; i++ ){
+	
 	if(add[i].alive){
 	add[i].fitness += 1; 
 	const int diameter = radius*2;
@@ -46,7 +80,7 @@ static void create_bird(SDL_Renderer* render, bird* add, size_t amount_of_birds 
 		SDL_RenderDrawLine(render,add[i].x_position -x, add[i].y_position + y, add[i].x_position - x, add[i].y_position -y); 
 		SDL_RenderDrawLine(render,add[i].x_position -y, add[i].y_position + x, add[i].x_position - y, add[i].y_position -x); 
 		if(error <= 0)
-		{
+	{
 			y++; 
 			error += ty; 
 			ty += 2; 
@@ -77,21 +111,20 @@ static bird * create_batch(size_t amount_of_birds)
 static pole * create_poles()
 {
 	const int width_pole = 30.0;   
-	srand(69); 
 	const int gap = 175;
 	int next_pole = 0; 
 	pole * result = calloc(NUMBER_OF_POLES, sizeof(pole));
 	for(size_t ii=0; ii< NUMBER_OF_POLES; ++ii, next_pole += 150)
 	{
 		int randomness = rand() % 255; 
-		SDL_Rect temp_bottom={
-			WIDTH/2 + next_pole,
+		SDL_FRect temp_bottom={
+			(float)WIDTH/2 + next_pole,
 			HEIGHT, 
 			width_pole, 
 			-(HEIGHT - (randomness+ gap))	
 			};
-		SDL_Rect temp_top={
-			WIDTH/2  + next_pole, 
+		SDL_FRect temp_top={
+			(float)WIDTH/2  + next_pole, 
 			0, 
 			width_pole,
 			randomness,
@@ -102,15 +135,60 @@ static pole * create_poles()
 	}
 	return result;
 }
+inline static void game_movement(pole * obstacles, double delta_time)
+{
+for(size_t i=0; i< NUMBER_OF_POLES; ++i)
+{
+	obstacles[i].bottom_box.x -= 5 * delta_time; 
+	obstacles[i].top_box.x -= 5* delta_time; 
+}
+} 
+inline static void rerender_pole(pole * first , pole * last, pole * obstacle)
+{
+	const int width_pole = 30.0;   
+	const int gap = 150;
+	const int next_pole = 150;
+	int randomness = rand() % 255; 
+	printf("%d\n",randomness );
+		SDL_FRect temp_bottom={
+			last->bottom_box.x + next_pole,
+			HEIGHT, 
+			width_pole, 
+			-(HEIGHT - (randomness+ gap))	
+			};
+		SDL_FRect temp_top={
+			last->top_box.x + next_pole, 
+			0, 
+			width_pole,
+			randomness,
+		};
+	obstacle->top_box = temp_top; 
+	obstacle->bottom_box = temp_bottom;
+	if(last == obstacle){
+		printf("hi"); 
+	pole  temp = *first; 
+	*first = *obstacle; 
+	*obstacle = temp;  
+		return;
+	}
+	pole  temp = *last; 
+	*last = *obstacle; 
+	*obstacle = temp;  
+}
 inline static void poles(SDL_Renderer * render, pole* obstacles)
 {
 	SDL_SetRenderDrawColor(render, 0,0,0,0); 
 	for(size_t i=0; i< NUMBER_OF_POLES; ++i)
 	{
-		SDL_RenderFillRect(render, &obstacles[i].bottom_box); 	
-		SDL_RenderFillRect(render, &obstacles[i].top_box); 	
-		SDL_RenderDrawRect(render, &obstacles[i].bottom_box); 	
-		SDL_RenderDrawRect(render, &obstacles[i].top_box); 	
+		if(obstacles[i].bottom_box.x < 0)
+		{
+		obstacles[i].visible =false; 
+		rerender_pole(&obstacles[0] ,&obstacles[NUMBER_OF_POLES -1] ,&obstacles[i]);
+		}
+		SDL_RenderFillRectF(render, &obstacles[i].bottom_box); 	
+		SDL_RenderFillRectF(render, &obstacles[i].top_box); 	
+		SDL_RenderDrawRectF(render, &obstacles[i].bottom_box); 	
+		SDL_RenderDrawRectF(render, &obstacles[i].top_box); 	
 	}
 	return; 
 }
@@ -148,6 +226,7 @@ if (delta_time > 0.1)
 	delta_time = 0.1; 
 else if (delta_time < 0.065)
 	delta_time = 0.065;
+
 while(SDL_PollEvent(&e))
 {
 	if(e.type == SDL_QUIT)
@@ -160,12 +239,16 @@ while(SDL_PollEvent(&e))
 		}
 	}
 }
+
+pole * result[2] = {}; 
+near_poles(obstacles, birds, result); 
 change_y(birds, delta_time, amount_of_birds);
 gravity(birds, delta_time, amount_of_birds);
 SDL_SetRenderDrawColor(rend_wind->main_renderer, 0,104,255,137);
 SDL_RenderClear(rend_wind->main_renderer); 
+game_movement(obstacles, delta_time); 
 poles(rend_wind->main_renderer, obstacles);
-create_bird(rend_wind->main_renderer, birds, amount_of_birds, BIRD_RADIUS); 
+create_bird(rend_wind->main_renderer, obstacles,  birds, amount_of_birds, BIRD_RADIUS); 
 SDL_RenderPresent(rend_wind->main_renderer); 
 before = clock(); 
 }
