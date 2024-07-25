@@ -27,10 +27,13 @@ typedef struct{
 	bool alive; 
 	brain thinker; 
 } bird; 
+static bool think(bird * birds, pole * obstacles);  
 struct SDL_initialize init(); 
+static void free_the_birds(bird * birds); 
 inline static void rerender_pole(pole * first,  pole * last, pole * obstacle); 
 inline static void collision_detection(pole * obstacle, bird * birds); 
-inline static pole ** near_poles(pole * obstacle, bird * birds, pole *result[2]); 
+inline static pole ** near_poles(pole * obstacle, bird * birds, pole *result[2],
+		SDL_Renderer * render); 
 static void close(struct SDL_initialize* init); 
 static  bird* create_batch(size_t amount_of_birds);
 void gameLoop(struct SDL_initialize* rend_wind);
@@ -38,6 +41,7 @@ static void create_bird(SDL_Renderer* render,pole * obstacles ,bird* add, size_t
 inline static void jump(bird *birds);
 inline static void game_movement(pole * obstacles, double delta_time);
 static pole* create_poles(); 
+static float distance_to_box(SDL_FRect * box, bird * birds);
 inline static void gravity(bird * birds, double delta_time ,size_t amount_of_birds); 
 inline static void change_y(bird * birds, double delta_time, size_t amount_of_birds); 
 inline static void poles(SDL_Renderer* render, pole * obstacles);

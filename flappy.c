@@ -1,5 +1,5 @@
 #include "flappy.h"
-const double thrust = -8.0, gravity_y = -.581;  
+const double thrust = -8.0, gravity_y = -.375;  
 struct SDL_initialize init()
 {
 struct SDL_initialize return_value = {NULL, NULL};
@@ -19,7 +19,8 @@ init->main_window = NULL;
 init->main_renderer = NULL; 
 SDL_Quit(); 
 }
-inline static pole ** near_poles(pole * obstacle, bird * birds, pole* result[2])
+inline static pole ** near_poles(pole * obstacle, bird * birds, pole* result[2],
+		SDL_Renderer * render)
 {
 	pole * close = obstacle; 
 	pole * close_two = obstacle + sizeof(pole);
@@ -41,6 +42,11 @@ inline static pole ** near_poles(pole * obstacle, bird * birds, pole* result[2])
 		close_two = &obstacle[i];
 		}
 	}
+	SDL_SetRenderDrawColor(render, 255,0,0,0); 
+	SDL_RenderFillRectF(render, &close->bottom_box);
+	SDL_RenderDrawRectF(render, &close->bottom_box); 
+	SDL_RenderFillRectF(render, &close->top_box);
+	SDL_RenderDrawRectF(render, &close->top_box); 
 	result[0] = close; 
 	result[1] = close_two; 
 	return result;
@@ -48,16 +54,19 @@ inline static pole ** near_poles(pole * obstacle, bird * birds, pole* result[2])
 inline static void collision_detection(pole * obstacle, bird * birds)
 {
 	pole * result[2] = {};
-	near_poles(obstacle, birds, result);
-	
-
+	//near_poles(obstacle, birds, result);
 }
 static void create_bird(SDL_Renderer* render, pole* obstacles ,bird* add, size_t amount_of_birds , int radius)
 {
 	for(size_t i =0; i<amount_of_birds; i++ ){
 	
 	if(add[i].alive){
-	add[i].fitness += 1; 
+	think(&add[i], obstacles);
+	//if(think(&add[i], obstacles))
+	//	jump(&add[i]);
+	pole * result[2] = {};
+	near_poles(obstacles, &add[i], result,render);
+	add[i].fitness += 1i; 
 	const int diameter = radius*2;
 	int x= radius; 
 	int y = 0; 
@@ -94,8 +103,46 @@ static void create_bird(SDL_Renderer* render, pole* obstacles ,bird* add, size_t
 	}
 	return; 
 }
+static float distance_to_box(SDL_FRect * box, bird * birds)
+{
+	float y_temp; 
+	if((int)box->y == HEIGHT){
+		y_temp = HEIGHT + box->h;
+	}	
+	else
+		y_temp = box->h;
+	float x_temp = box->x - birds->x_position; 	
+	y_temp = box->y - birds->y_position;  
+	float result= sqrt((x_temp * x_temp) +(y_temp * y_temp));
+	return result; 
+}
+static bool think(bird * birds, pole * obstacles)
+{
+	bool return_val; 
+	pole * result[2] = {}; 
+//	near_poles(obstacles, birds, result);
+	printf("the first pole: %f \n the second : %f \n", result[0]->bottom_box.x, result[1]->bottom_box.x);
+	pole * pole_to_search = (result[0]->bottom_box.x > result[1]->bottom_box.x) ?
+				 result[0]:result[1];
+	float input[birds->thinker.num_inputs];
+	input[0] = birds->x_position / WIDTH; 
+	input[1] = birds->y_position/ HEIGHT; 
+	input[2] = birds->bird_velocity / 8.0; 
+	input[3] = distance_to_box(&pole_to_search->top_box, birds) / 200;//top 
+	input[4] = distance_to_box(&pole_to_search->bottom_box, birds) /200; //bottom
+	float *temp = compute_brain(&birds->thinker, input); 
+	//if(*temp> 0.5)
+		//printf("the value is %f", *temp);
+	return_val = (*temp < 0.5) ? true : false; 	
+	return return_val; 
+}
 static bird * create_batch(size_t amount_of_birds)
 {
+	//inputs to brain = velocity, xpos, ypos, distance to top, distance to bottom
+	size_t *neurons_per = calloc(3, sizeof(size_t));
+	neurons_per[0]= 5; neurons_per[1]= 3; neurons_per[2]= 1; 
+	activation*func_per= calloc(3, sizeof(activation));
+	func_per[0]= RELU; func_per[1]= RELU; func_per[2]= SIGMOID; 
 	bird * result = calloc( amount_of_birds ,sizeof(bird));
 	for(size_t ii=0; ii<amount_of_birds; ii++)
 	{
@@ -104,6 +151,7 @@ static bird * create_batch(size_t amount_of_birds)
 		result[ii].y_position = (double)HEIGHT/2; 
 		result[ii].fitness = 0; 
 		result[ii].alive = true; 
+		result[ii].thinker = initialize_brain(3,5,neurons_per, func_per);
 	}
 	return result; 
 
@@ -114,7 +162,7 @@ static pole * create_poles()
 	const int gap = 175;
 	int next_pole = 0; 
 	pole * result = calloc(NUMBER_OF_POLES, sizeof(pole));
-	for(size_t ii=0; ii< NUMBER_OF_POLES; ++ii, next_pole += 150)
+	for(size_t ii=0; ii< NUMBER_OF_POLES; ++ii, next_pole += 200)
 	{
 		int randomness = rand() % 255; 
 		SDL_FRect temp_bottom={
@@ -139,17 +187,16 @@ inline static void game_movement(pole * obstacles, double delta_time)
 {
 for(size_t i=0; i< NUMBER_OF_POLES; ++i)
 {
-	obstacles[i].bottom_box.x -= 5 * delta_time; 
-	obstacles[i].top_box.x -= 5* delta_time; 
+	obstacles[i].bottom_box.x -= 2.5 * delta_time; 
+	obstacles[i].top_box.x -= 2.5* delta_time; 
 }
 } 
 inline static void rerender_pole(pole * first , pole * last, pole * obstacle)
 {
 	const int width_pole = 30.0;   
 	const int gap = 150;
-	const int next_pole = 150;
+	const int next_pole = 200;
 	int randomness = rand() % 255; 
-	printf("%d\n",randomness );
 		SDL_FRect temp_bottom={
 			last->bottom_box.x + next_pole,
 			HEIGHT, 
@@ -199,15 +246,16 @@ inline static void gravity(bird * birds, double delta_time ,size_t amount_of_bir
 {
 	for(size_t i=0; i< amount_of_birds; ++i)
 	{
-		birds[i].bird_velocity -= gravity_y * delta_time;
+		if(!(birds[i].bird_velocity > 8.0))
+			birds[i].bird_velocity -= gravity_y * delta_time;
 	} 	
 
 }
 inline static void change_y(bird * birds, double delta_time ,size_t amount_of_birds)
 {
-	for(size_t i=0; i< amount_of_birds; ++i){
+	for(size_t i=0; i< amount_of_birds; ++i)
 		birds[i].y_position += birds[i].bird_velocity *delta_time; 
-	} 	
+	
 }
 void gameLoop(struct SDL_initialize *rend_wind)
 {
@@ -239,9 +287,6 @@ while(SDL_PollEvent(&e))
 		}
 	}
 }
-
-pole * result[2] = {}; 
-near_poles(obstacles, birds, result); 
 change_y(birds, delta_time, amount_of_birds);
 gravity(birds, delta_time, amount_of_birds);
 SDL_SetRenderDrawColor(rend_wind->main_renderer, 0,104,255,137);
